@@ -41,7 +41,10 @@ export default async function handler(req, res) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents,
-        generationConfig: { maxOutputTokens: max_tokens || 1000 },
+        generationConfig: {
+          maxOutputTokens: Math.max(max_tokens || 1000, 2048),
+          thinkingConfig: { thinkingBudget: 0 },
+        },
       }),
     });
 
@@ -54,7 +57,8 @@ export default async function handler(req, res) {
     }
 
     const candidate = data?.candidates?.[0];
-    const text = (candidate?.content?.parts || []).map((p) => p.text || '').join('');
+    const parts = candidate?.content?.parts || [];
+    const text = parts.filter((p) => !p.thought).map((p) => p.text || '').join('');
 
     if (!text) {
       const blockReason = data?.promptFeedback?.blockReason;
