@@ -5,7 +5,7 @@
 // an Anthropic-style {content:[{type:'text', text}]} response, so App.jsx
 // needed no changes beyond the fetch URL.
 
-const GEMINI_MODEL = 'gemini-2.5-flash';
+const GEMINI_MODEL = 'gemini-3.6-flash';
 
 function toGeminiContents(messages) {
   // messages: [{ role: 'user', content: [ {type:'text', text} | {type:'image', source:{media_type, data}} ] }]
