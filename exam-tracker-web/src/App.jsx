@@ -1005,7 +1005,7 @@ function QuizBlock({ quiz, onPracticeMore, practiceMoreLoading, practiceMoreErro
               );
             })}
           </div>
-          {answers[i] !== undefined && q.explanation && <p className="mt-1 font-mono text-xs text-slate-500">{q.explanation}</p>}
+          {answers[i] !== undefined && q.explanation && <FormattedText text={q.explanation} className="mt-1.5 text-xs text-slate-400" />}
         </div>
       ))}
       {allAnswered && (
@@ -1187,7 +1187,7 @@ function DoubtsTab({ doubts, setDoubts }) {
     const prompt = `You are a patient tutor for an Indian banking-exam aspirant (quant/reasoning/English prelims level).
 ${text.trim() ? `Question:\n${text.trim()}\n` : 'Read the attached screenshot(s) of a question.'}
 Respond with ONLY valid JSON, no markdown fences, no preamble, in this exact shape. Never use LaTeX or math delimiters (no \\text, \\frac, $...$, or backslash commands) anywhere in the JSON — write any numbers, fractions, or formulas in plain text instead (e.g. "1/2 kg = 500 grams", "x = 5"), since backslashes break JSON parsing:
-{"answer":"the final answer, short","explanation":"a clear step-by-step explanation a beginner can follow","similarQuestions":[{"question":"...","options":["A","B","C","D"],"correctIndex":0,"explanation":"one short line on why, and the quick method"}]}
+{"answer":"the final answer, short","explanation":"a clear step-by-step explanation a beginner can follow","similarQuestions":[{"question":"...","options":["A","B","C","D"],"correctIndex":0,"explanation":"a short but complete step-by-step walkthrough — say what is actually being bought and sold in plain words first, then the calculation with real numbers, not just a bare formula substitution someone would need to already know to follow"}]}
 Give exactly 3 similar practice MCQs at the same difficulty and same concept.`;
     const res = await callClaude(prompt, images);
     setLoading(false);
@@ -1209,7 +1209,7 @@ Original question: ${entry.question}
 Correct answer: ${entry.answer}
 Already given (write different ones, same concept, do not repeat these): ${already}
 Respond with ONLY valid JSON, no markdown fences, no preamble, in this exact shape. Never use LaTeX or math delimiters (no \\text, \\frac, $...$, or backslash commands) anywhere in the JSON — write any numbers, fractions, or formulas in plain text instead (e.g. "1/2 kg = 500 grams", "x = 5"), since backslashes break JSON parsing:
-{"similarQuestions":[{"question":"...","options":["A","B","C","D"],"correctIndex":0,"explanation":"one short line on why, and the quick method"}]}
+{"similarQuestions":[{"question":"...","options":["A","B","C","D"],"correctIndex":0,"explanation":"a short but complete step-by-step walkthrough — say what is actually being bought and sold in plain words first, then the calculation with real numbers, not just a bare formula substitution someone would need to already know to follow"}]}
 Give exactly 3 new practice MCQs, same difficulty and concept as the original.`;
     const res = await callClaude(prompt, []);
     setPracticeMoreId(null);
