@@ -296,6 +296,29 @@ function EmptyState({ text }) {
   return <p className="py-6 text-center text-sm text-slate-600">{text}</p>;
 }
 
+function FormattedText({ text, className = '' }) {
+  if (!text) return null;
+  const lines = String(text).split(/\n+/).filter((l) => l.trim().length);
+  return (
+    <div className={className}>
+      {lines.map((line, i) => {
+        const parts = line.split(/(\*\*[^*]+\*\*)/g).filter((p) => p.length);
+        return (
+          <p key={i} className={i > 0 ? 'mt-1.5' : ''}>
+            {parts.map((part, j) =>
+              part.startsWith('**') && part.endsWith('**') ? (
+                <strong key={j} className="font-semibold text-slate-200">{part.slice(2, -2)}</strong>
+              ) : (
+                <span key={j}>{part}</span>
+              )
+            )}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
 /* ===================== countdown bar ===================== */
 
 function CountdownChip({ label, dateStr }) {
@@ -888,7 +911,7 @@ function CATab({ caEntries, setCaEntries }) {
     setLoading(true); setError('');
     const prompt = `You are preparing daily current-affairs material for an Indian banking-exam aspirant (IBPS/SBI prelims level).
 ${text.trim() ? `Source text:\n${text.trim()}\n` : 'Read the attached screenshot(s) of current affairs content.'}
-Respond with ONLY valid JSON, no markdown fences, no preamble, in this exact shape:
+Respond with ONLY valid JSON, no markdown fences, no preamble, in this exact shape. Never use LaTeX or math delimiters (no \\text, \\frac, $...$, or backslash commands) anywhere in the JSON — write any numbers, fractions, or formulas in plain text instead (e.g. "1/2 kg = 500 grams", "x = 5"), since backslashes break JSON parsing:
 {"summary":"3-4 sentence digest of the most exam-relevant points","keyPoints":["short fact 1","short fact 2","..."],"quiz":[{"question":"...","options":["A","B","C","D"],"correctIndex":0,"explanation":"one line"}]}
 Write 5 quiz questions, exam-style (who/what/when/scheme names/appointments/numbers), based only on the given content.`;
     const res = await callClaude(prompt, images);
@@ -1005,7 +1028,7 @@ function EnglishTab({ editorialEntries, setEditorialEntries, descriptiveEntries,
     setLoading(true); setError('');
     const prompt = `You are an English coach for an Indian banking-exam aspirant (prelims + mains level).
 ${text.trim() ? `Editorial text:\n${text.trim()}\n` : 'Read the attached screenshot(s) of an editorial.'}
-Respond with ONLY valid JSON, no markdown fences, no preamble, in this exact shape:
+Respond with ONLY valid JSON, no markdown fences, no preamble, in this exact shape. Never use LaTeX or math delimiters (no \\text, \\frac, $...$, or backslash commands) anywhere in the JSON — write any numbers, fractions, or formulas in plain text instead (e.g. "1/2 kg = 500 grams", "x = 5"), since backslashes break JSON parsing:
 {"precis":"a short precis in 60-80 words","vocab":[{"word":"...","meaning":"simple one-line meaning","usage":"short example sentence"}],"grammar":["one grammar/structure point actually used in this piece, explained in one line","..."],"predictedVocab":["word likely to appear in upcoming exam vocab-based questions based on this piece's theme","..."]}
 Pick 6-8 genuinely hard/exam-relevant words from the piece for "vocab". Give 3-4 "grammar" points. Give 5 "predictedVocab" words related to the piece's theme, not necessarily in the text itself.`;
     const res = await callClaude(prompt, images);
@@ -1025,7 +1048,7 @@ Pick 6-8 genuinely hard/exam-relevant words from the piece for "vocab". Give 3-4
 Prompt given to the candidate: "${dwPrompt.trim() || '(not specified — infer the likely prompt type from the response)'}"
 Target length: around ${dwTarget} words.
 ${dwResponse.trim() ? `Candidate's response:\n${dwResponse.trim()}\n` : "Read the candidate's response from the attached screenshot(s)."}
-Respond with ONLY valid JSON, no markdown fences, no preamble, in this exact shape:
+Respond with ONLY valid JSON, no markdown fences, no preamble, in this exact shape. Never use LaTeX or math delimiters (no \\text, \\frac, $...$, or backslash commands) anywhere in the JSON — write any numbers, fractions, or formulas in plain text instead (e.g. "1/2 kg = 500 grams", "x = 5"), since backslashes break JSON parsing:
 {"score":7,"structure":"1-2 sentences on organization, paragraphing, and flow","language":"1-2 sentences on grammar, vocabulary, and tone","contentRelevance":"1-2 sentences on how well it actually answers the given prompt","improvements":["one concrete, specific fix","another concrete fix","a third concrete fix"]}
 Score out of 10 the way a real mains examiner would — do not inflate it just to be encouraging.`;
     const res = await callClaude(prompt, dwImages);
@@ -1141,7 +1164,7 @@ function DoubtsTab({ doubts, setDoubts }) {
     setLoading(true); setError('');
     const prompt = `You are a patient tutor for an Indian banking-exam aspirant (quant/reasoning/English prelims level).
 ${text.trim() ? `Question:\n${text.trim()}\n` : 'Read the attached screenshot(s) of a question.'}
-Respond with ONLY valid JSON, no markdown fences, no preamble, in this exact shape:
+Respond with ONLY valid JSON, no markdown fences, no preamble, in this exact shape. Never use LaTeX or math delimiters (no \\text, \\frac, $...$, or backslash commands) anywhere in the JSON — write any numbers, fractions, or formulas in plain text instead (e.g. "1/2 kg = 500 grams", "x = 5"), since backslashes break JSON parsing:
 {"answer":"the final answer, short","explanation":"a clear step-by-step explanation a beginner can follow","similarQuestions":[{"question":"...","options":["A","B","C","D"],"correctIndex":0}]}
 Give exactly 3 similar practice MCQs at the same difficulty and same concept.`;
     const res = await callClaude(prompt, images);
@@ -1175,7 +1198,7 @@ Give exactly 3 similar practice MCQs at the same difficulty and same concept.`;
             <p className="mb-2 text-sm text-slate-300">{d.question}</p>
             <div className="mb-3 rounded-lg border border-cyan-900 bg-cyan-950 p-3">
               <p className="mb-1 text-sm font-semibold text-cyan-400">Answer: {d.answer}</p>
-              <p className="text-xs text-slate-400">{d.explanation}</p>
+              <FormattedText text={d.explanation} className="text-xs text-slate-400" />
             </div>
             {(d.similarQuestions || []).length > 0 && (
               <div>
