@@ -42,7 +42,7 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         contents,
         generationConfig: {
-          maxOutputTokens: Math.max(max_tokens || 1000, 3072),
+          maxOutputTokens: Math.max(max_tokens || 1000, 6144),
         },
       }),
     });
