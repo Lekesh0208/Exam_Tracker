@@ -178,9 +178,20 @@ function parseJsonLoose(text) {
   try {
     return JSON.parse(cleaned);
   } catch (e) {
-    const match = cleaned.match(/\{[\s\S]*\}/);
-    if (match) {
-      try { return JSON.parse(match[0]); } catch (e2) { return null; }
+    // Walk from the first '{' and track brace depth to find the true matching
+    // close, instead of a greedy regex that grabs up to the LAST '}' in the
+    // text — that breaks the moment the model adds any trailing sentence.
+    const start = cleaned.indexOf('{');
+    if (start === -1) return null;
+    let depth = 0;
+    for (let i = start; i < cleaned.length; i++) {
+      if (cleaned[i] === '{') depth++;
+      else if (cleaned[i] === '}') {
+        depth--;
+        if (depth === 0) {
+          try { return JSON.parse(cleaned.slice(start, i + 1)); } catch (e2) { return null; }
+        }
+      }
     }
     return null;
   }
@@ -884,7 +895,7 @@ Write 5 quiz questions, exam-style (who/what/when/scheme names/appointments/numb
     setLoading(false);
     if (!res.ok) { setError(friendlyErrorMessage(res.error)); return; }
     const parsed = parseJsonLoose(res.text);
-    if (!parsed) { setError('Got a response but could not parse it as a quiz — try again.'); return; }
+    if (!parsed) { setError('Could not parse the response as JSON. Raw: ' + res.text.slice(0, 250)); return; }
     const entry = { id: 'ca-' + Date.now(), date: todayISO(), sourceText: text.trim().slice(0, 400), ...parsed };
     setCaEntries([entry, ...caEntries]);
     setText(''); setImages([]);
@@ -1001,7 +1012,7 @@ Pick 6-8 genuinely hard/exam-relevant words from the piece for "vocab". Give 3-4
     setLoading(false);
     if (!res.ok) { setError(friendlyErrorMessage(res.error)); return; }
     const parsed = parseJsonLoose(res.text);
-    if (!parsed) { setError('Got a response but could not parse it — try again.'); return; }
+    if (!parsed) { setError('Could not parse the response as JSON. Raw: ' + res.text.slice(0, 250)); return; }
     const entry = { id: 'edit-' + Date.now(), date: todayISO(), sourceText: text.trim().slice(0, 400), ...parsed };
     setEditorialEntries([entry, ...editorialEntries]);
     setText(''); setImages([]);
@@ -1021,7 +1032,7 @@ Score out of 10 the way a real mains examiner would — do not inflate it just t
     setDwLoading(false);
     if (!res.ok) { setDwError(friendlyErrorMessage(res.error)); return; }
     const parsed = parseJsonLoose(res.text);
-    if (!parsed) { setDwError('Got a response but could not parse it — try again.'); return; }
+    if (!parsed) { setDwError('Could not parse the response as JSON. Raw: ' + res.text.slice(0, 250)); return; }
     const entry = { id: 'dw-' + Date.now(), date: todayISO(), prompt: dwPrompt.trim(), wordCount: dwWordCount, target: dwTarget, ...parsed };
     setDescriptiveEntries([entry, ...descriptiveEntries]);
     setDwPrompt(''); setDwResponse(''); setDwImages([]);
@@ -1137,7 +1148,7 @@ Give exactly 3 similar practice MCQs at the same difficulty and same concept.`;
     setLoading(false);
     if (!res.ok) { setError(friendlyErrorMessage(res.error)); return; }
     const parsed = parseJsonLoose(res.text);
-    if (!parsed) { setError('Got a response but could not parse it — try again.'); return; }
+    if (!parsed) { setError('Could not parse the response as JSON. Raw: ' + res.text.slice(0, 250)); return; }
     const entry = { id: 'doubt-' + Date.now(), date: todayISO(), question: text.trim().slice(0, 300) || '(from screenshot)', ...parsed };
     setDoubts([entry, ...doubts]);
     setText(''); setImages([]);
