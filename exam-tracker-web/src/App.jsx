@@ -1215,7 +1215,7 @@ Give exactly 3 new practice MCQs, same difficulty and concept as the original.`;
     setPracticeMoreId(null);
     if (!res.ok) { setPracticeMoreError(friendlyErrorMessage(res.error)); setPracticeMoreErrorId(entry.id); return; }
     const parsed = parseJsonLoose(res.text);
-    if (!parsed || !parsed.similarQuestions) { setPracticeMoreError('Could not generate more questions — try again.'); setPracticeMoreErrorId(entry.id); return; }
+    if (!parsed || !parsed.similarQuestions) { setPracticeMoreError('Could not parse the response as JSON. Raw: ' + res.text.slice(0, 250)); setPracticeMoreErrorId(entry.id); return; }
     setDoubts(doubts.map((d) => (d.id === entry.id ? { ...d, similarQuestions: [...(d.similarQuestions || []), ...parsed.similarQuestions] } : d)));
   };
 
