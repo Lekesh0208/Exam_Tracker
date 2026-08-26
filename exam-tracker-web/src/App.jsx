@@ -101,6 +101,42 @@ function fileToBase64(file) {
   });
 }
 
+function resizeImageFile(file, maxDim = 1400, quality = 0.82) {
+  // Downscales + re-encodes as JPEG before upload. Phone screenshots/photos can
+  // easily be 3-8MB raw, which risks the serverless function's request-size
+  // limit; this typically brings that down to a few hundred KB.
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      let { width, height } = img;
+      if (width > maxDim || height > maxDim) {
+        if (width >= height) { height = Math.round((height * maxDim) / width); width = maxDim; }
+        else { width = Math.round((width * maxDim) / height); height = maxDim; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      canvas.toBlob(
+        (blob) => {
+          URL.revokeObjectURL(objectUrl);
+          if (!blob) { reject(new Error('Could not process that image.')); return; }
+          const reader = new FileReader();
+          reader.onload = () => resolve({ base64: String(reader.result).split(',')[1], previewUrl: URL.createObjectURL(blob) });
+          reader.onerror = () => reject(new Error('Could not read the processed image.'));
+          reader.readAsDataURL(blob);
+        },
+        'image/jpeg',
+        quality
+      );
+    };
+    img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('Could not load that image.')); };
+    img.src = objectUrl;
+  });
+}
+
 async function callClaude(promptText, images = []) {
   const content = [];
   images.forEach((img) => {
@@ -118,13 +154,18 @@ async function callClaude(promptText, images = []) {
         messages: [{ role: 'user', content }],
       }),
     });
-    const data = await response.json().catch(() => ({}));
+    const rawText = await response.text().catch(() => '');
+    let data = {};
+    if (rawText) {
+      try { data = JSON.parse(rawText); } catch (e) { data = {}; }
+    }
     if (!response.ok) {
-      const msg = (data && data.error && data.error.message) || `Request failed — HTTP ${response.status}`;
+      const msg = (data && data.error && data.error.message)
+        || (rawText ? `HTTP ${response.status}: ${rawText.replace(/\s+/g, ' ').slice(0, 180)}` : `Request failed — HTTP ${response.status}`);
       return { ok: false, error: msg };
     }
     const text = ((data && data.content) || []).map((b) => b.text || '').join('\n').trim();
-    if (!text) return { ok: false, error: 'Empty response from the model.' };
+    if (!text) return { ok: false, error: rawText ? `Empty response from the model. Raw: ${rawText.slice(0, 180)}` : 'Empty response from the model.' };
     return { ok: true, text };
   } catch (e) {
     return { ok: false, error: e && e.message ? e.message : 'Network request failed.' };
@@ -339,8 +380,8 @@ function ImageUploader({ files, setFiles, maxFiles = 3 }) {
     const withData = [];
     for (const file of toAdd) {
       try {
-        const data = await fileToBase64(file);
-        withData.push({ name: file.name, mediaType: file.type || 'image/png', data, previewUrl: URL.createObjectURL(file) });
+        const { base64, previewUrl } = await resizeImageFile(file);
+        withData.push({ name: file.name, mediaType: 'image/jpeg', data: base64, previewUrl });
       } catch (e) {
         // skip unreadable file
       }
