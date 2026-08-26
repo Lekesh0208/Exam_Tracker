@@ -978,8 +978,13 @@ Write 5 quiz questions, exam-style (who/what/when/scheme names/appointments/numb
   );
 }
 
-function QuizBlock({ quiz }) {
+function QuizBlock({ quiz, onPracticeMore, practiceMoreLoading, practiceMoreError }) {
   const [answers, setAnswers] = useState({});
+  const answeredCount = Object.keys(answers).length;
+  const correctCount = Object.entries(answers).filter(([i, picked]) => picked === quiz[Number(i)]?.correctIndex).length;
+  const allAnswered = quiz.length > 0 && answeredCount === quiz.length;
+  const scorePct = allAnswered ? correctCount / quiz.length : 0;
+
   return (
     <div className="mt-3 space-y-3 border-t border-slate-800 pt-3">
       {quiz.map((q, i) => (
@@ -1003,6 +1008,20 @@ function QuizBlock({ quiz }) {
           {answers[i] !== undefined && q.explanation && <p className="mt-1 font-mono text-xs text-slate-500">{q.explanation}</p>}
         </div>
       ))}
+      {allAnswered && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-950 px-3 py-2">
+          <span className={`font-mono text-sm font-bold ${scorePct === 1 ? 'text-emerald-400' : scorePct < 0.6 ? 'text-rose-400' : 'text-amber-400'}`}>
+            {correctCount}/{quiz.length} correct
+          </span>
+          {onPracticeMore && (
+            <NeonButton variant="ghost" onClick={onPracticeMore} disabled={practiceMoreLoading}>
+              {practiceMoreLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              {practiceMoreLoading ? 'Generating…' : scorePct < 0.6 ? 'Drill this more' : 'Practice a few more'}
+            </NeonButton>
+          )}
+        </div>
+      )}
+      {practiceMoreError && <ErrorNote message={practiceMoreError} />}
     </div>
   );
 }
@@ -1158,6 +1177,9 @@ function DoubtsTab({ doubts, setDoubts }) {
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [practiceMoreId, setPracticeMoreId] = useState(null);
+  const [practiceMoreError, setPracticeMoreError] = useState('');
+  const [practiceMoreErrorId, setPracticeMoreErrorId] = useState(null);
 
   const solve = async () => {
     if (!text.trim() && !images.length) { setError('Type the question or upload a screenshot of it.'); return; }
@@ -1165,7 +1187,7 @@ function DoubtsTab({ doubts, setDoubts }) {
     const prompt = `You are a patient tutor for an Indian banking-exam aspirant (quant/reasoning/English prelims level).
 ${text.trim() ? `Question:\n${text.trim()}\n` : 'Read the attached screenshot(s) of a question.'}
 Respond with ONLY valid JSON, no markdown fences, no preamble, in this exact shape. Never use LaTeX or math delimiters (no \\text, \\frac, $...$, or backslash commands) anywhere in the JSON — write any numbers, fractions, or formulas in plain text instead (e.g. "1/2 kg = 500 grams", "x = 5"), since backslashes break JSON parsing:
-{"answer":"the final answer, short","explanation":"a clear step-by-step explanation a beginner can follow","similarQuestions":[{"question":"...","options":["A","B","C","D"],"correctIndex":0}]}
+{"answer":"the final answer, short","explanation":"a clear step-by-step explanation a beginner can follow","similarQuestions":[{"question":"...","options":["A","B","C","D"],"correctIndex":0,"explanation":"one short line on why, and the quick method"}]}
 Give exactly 3 similar practice MCQs at the same difficulty and same concept.`;
     const res = await callClaude(prompt, images);
     setLoading(false);
@@ -1175,6 +1197,26 @@ Give exactly 3 similar practice MCQs at the same difficulty and same concept.`;
     const entry = { id: 'doubt-' + Date.now(), date: todayISO(), question: text.trim().slice(0, 300) || '(from screenshot)', ...parsed };
     setDoubts([entry, ...doubts]);
     setText(''); setImages([]);
+  };
+
+  const practiceMore = async (entry) => {
+    setPracticeMoreId(entry.id);
+    setPracticeMoreError('');
+    setPracticeMoreErrorId(null);
+    const already = (entry.similarQuestions || []).map((q) => q.question).join(' | ') || 'none yet';
+    const prompt = `You are generating more MCQ practice for an Indian banking-exam aspirant, on the exact same concept as this doubt.
+Original question: ${entry.question}
+Correct answer: ${entry.answer}
+Already given (write different ones, same concept, do not repeat these): ${already}
+Respond with ONLY valid JSON, no markdown fences, no preamble, in this exact shape. Never use LaTeX or math delimiters (no \\text, \\frac, $...$, or backslash commands) anywhere in the JSON — write any numbers, fractions, or formulas in plain text instead (e.g. "1/2 kg = 500 grams", "x = 5"), since backslashes break JSON parsing:
+{"similarQuestions":[{"question":"...","options":["A","B","C","D"],"correctIndex":0,"explanation":"one short line on why, and the quick method"}]}
+Give exactly 3 new practice MCQs, same difficulty and concept as the original.`;
+    const res = await callClaude(prompt, []);
+    setPracticeMoreId(null);
+    if (!res.ok) { setPracticeMoreError(friendlyErrorMessage(res.error)); setPracticeMoreErrorId(entry.id); return; }
+    const parsed = parseJsonLoose(res.text);
+    if (!parsed || !parsed.similarQuestions) { setPracticeMoreError('Could not generate more questions — try again.'); setPracticeMoreErrorId(entry.id); return; }
+    setDoubts(doubts.map((d) => (d.id === entry.id ? { ...d, similarQuestions: [...(d.similarQuestions || []), ...parsed.similarQuestions] } : d)));
   };
 
   return (
@@ -1203,7 +1245,12 @@ Give exactly 3 similar practice MCQs at the same difficulty and same concept.`;
             {(d.similarQuestions || []).length > 0 && (
               <div>
                 <p className="mb-1.5 font-mono text-xs uppercase tracking-wider text-fuchsia-400">Practice similar</p>
-                <QuizBlock quiz={d.similarQuestions} />
+                <QuizBlock
+                  quiz={d.similarQuestions}
+                  onPracticeMore={() => practiceMore(d)}
+                  practiceMoreLoading={practiceMoreId === d.id}
+                  practiceMoreError={practiceMoreErrorId === d.id ? practiceMoreError : ''}
+                />
               </div>
             )}
           </Panel>
